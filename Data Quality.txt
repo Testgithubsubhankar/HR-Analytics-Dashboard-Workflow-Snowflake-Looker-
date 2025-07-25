@@ -1,0 +1,40 @@
+
+
+CREATE OR REPLACE PROCEDURE analyze_column_distributions()
+RETURNS STRING
+LANGUAGE JAVASCRIPT
+AS
+$$
+var sql_command = "";
+var results = [];
+var stmt = snowflake.createStatement({
+    sqlText: `SELECT COLUMN_NAME 
+              FROM INFORMATION_SCHEMA.COLUMNS 
+              WHERE TABLE_NAME = 'HR_FULL_VIEW'
+              ORDER BY ORDINAL_POSITION`
+});
+var rs = stmt.execute();
+
+while (rs.next()) {
+    var col = rs.getColumnValue(1);
+    
+    // Use QUOTE_IDENT to handle case sensitivity and special characters
+    var query = `SELECT "` + col + `" AS COLUMN_VALUE, COUNT(*) AS FREQUENCY 
+                 FROM HR_FULL_VIEW 
+                 GROUP BY "` + col + `" 
+                 ORDER BY FREQUENCY DESC 
+                 LIMIT 10`;
+
+    var dist_stmt = snowflake.createStatement({ sqlText: query });
+    var dist_rs = dist_stmt.execute();
+    
+    results.push('--- Distribution for column: ' + col + ' ---');
+    while (dist_rs.next()) {
+        results.push(dist_rs.getColumnValue(1) + ' => ' + dist_rs.getColumnValue(2));
+    }
+}
+
+return results.join('\n');
+$$;
+
+CALL analyze_column_distributions();
