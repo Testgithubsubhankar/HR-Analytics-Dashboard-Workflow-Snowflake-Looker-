@@ -52,5 +52,31 @@ Storytelling with data for HR stakeholders
 
 Dashboard-
 
+1)
+
+<img width="1205" height="712" alt="Git1" src="https://github.com/user-attachments/assets/18e7dfa4-8cfb-4a6e-b43d-9fa4c8144562" />
+
+2)
+
+<img width="1207" height="700" alt="Git2" src="https://github.com/user-attachments/assets/66c1c18a-5d1a-46b4-a37c-a1a3fa07a970" />
+
+3)
+
+<img width="1077" height="685" alt="Git3" src="https://github.com/user-attachments/assets/a3170e17-208f-44d4-b902-d7b81d37177d" />
+
+4)
+
+<img width="1079" height="658" alt="Git4" src="https://github.com/user-attachments/assets/a9e10025-c076-4cee-871b-b9ba2c7b4c45" />
+
+5)
+
+<img width="1077" height="678" alt="Git 5" src="https://github.com/user-attachments/assets/b366fd0e-3311-4da0-add2-fb04e4a29ccb" />
+
+6)
+
+<img width="1084" height="658" alt="Git 6" src="https://github.com/user-attachments/assets/1fbdd503-79c7-4657-aebd-4b20ce34b9bd" />
+
+
+
 
 
