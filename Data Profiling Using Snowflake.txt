@@ -1,0 +1,140 @@
+
+--SELECT  * FROM CORE_DATASET;
+
+--Mean, Median, Mode
+--Standard Deviation, Min/Max
+--Null count, Distinct count, Zero values
+
+
+-- Step 1: Create the profiling table
+CREATE OR REPLACE TEMPORARY TABLE column_profile (
+    column_name STRING,
+    ordinal_position INT,
+    data_type STRING,
+    character_maximum_length INT,
+    maximum STRING,
+    minimum STRING,
+    nulls INT,
+    distinct_count INT,
+    mean FLOAT,
+    median FLOAT,
+    mode STRING,
+    SD FLOAT,
+    Zero_Values INT
+);
+
+INSERT INTO column_profile (column_name, ordinal_position, data_type, character_maximum_length)
+SELECT 
+    column_name,
+    ordinal_position,
+    data_type,
+    character_maximum_length
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME ILIKE 'CORE_DATASET';
+
+CREATE OR REPLACE PROCEDURE profile_clinical_data()
+RETURNS STRING
+LANGUAGE JAVASCRIPT
+AS
+$$
+var result = snowflake.execute({
+  sqlText: `SELECT column_name, ordinal_position, data_type FROM column_profile ORDER BY ordinal_position`
+});
+
+while (result.next()) {
+    let raw_col = result.getColumnValue("COLUMN_NAME");
+    let col = '"' + raw_col + '"'; // Quote column name
+    let pos = result.getColumnValue("ORDINAL_POSITION");
+    let dtype = result.getColumnValue("DATA_TYPE").toLowerCase();
+    let sql_command = "";
+
+    if (["int", "float", "double", "decimal", "number", "numeric", "real"].includes(dtype)) {
+        sql_command = `
+            UPDATE column_profile SET 
+                maximum = (SELECT MAX(${col})::STRING FROM CORE_DATASET),
+                minimum = (SELECT MIN(${col})::STRING FROM CORE_DATASET),
+                mean = (SELECT AVG(${col}) FROM CORE_DATASET),
+                SD = (SELECT STDDEV(${col}) FROM CORE_DATASET),
+                Zero_Values = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} = 0),
+                nulls = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} IS NULL),
+                distinct_count = (SELECT COUNT(DISTINCT ${col}) FROM CORE_DATASET),
+                mode = (
+                    SELECT ${col}::STRING FROM (
+                        SELECT ${col}, COUNT(*) cnt
+                        FROM CORE_DATASET
+                        GROUP BY ${col}
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                    )
+                ),
+                median = (SELECT MEDIAN(${col}) FROM CORE_DATASET)
+            WHERE ordinal_position = ${pos};
+        `;
+    } else if (["date", "datetime", "timestamp", "time"].includes(dtype)) {
+        sql_command = `
+            UPDATE column_profile SET 
+                maximum = (SELECT MAX(${col})::STRING FROM CORE_DATASET),
+                minimum = (SELECT MIN(${col})::STRING FROM CORE_DATASET),
+                nulls = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} IS NULL),
+                distinct_count = (SELECT COUNT(DISTINCT ${col}) FROM CORE_DATASET),
+                Zero_Values = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} = '1900-01-01'),
+                mode = (
+                    SELECT ${col}::STRING FROM (
+                        SELECT ${col}, COUNT(*) cnt
+                        FROM CORE_DATASET
+                        GROUP BY ${col}
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                    )
+                )
+            WHERE ordinal_position = ${pos};
+        `;
+    } else if (["varchar", "string", "text", "char"].includes(dtype)) {
+        sql_command = `
+            UPDATE column_profile SET 
+                maximum = (SELECT MAX(${col}) FROM CORE_DATASET),
+                minimum = (SELECT MIN(${col}) FROM CORE_DATASET),
+                nulls = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} IS NULL),
+                distinct_count = (SELECT COUNT(DISTINCT ${col}) FROM CORE_DATASET),
+                Zero_Values = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} = '0'),
+                mode = (
+                    SELECT ${col} FROM (
+                        SELECT ${col}, COUNT(*) cnt
+                        FROM CORE_DATASET
+                        GROUP BY ${col}
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                    )
+                )
+            WHERE ordinal_position = ${pos};
+        `;
+    } else if (["boolean"].includes(dtype)) {
+        sql_command = `
+            UPDATE column_profile SET 
+                nulls = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} IS NULL),
+                distinct_count = (SELECT COUNT(DISTINCT ${col}) FROM CORE_DATASET),
+                Zero_Values = (SELECT COUNT(*) FROM CORE_DATASET WHERE ${col} = FALSE),
+                mode = (
+                    SELECT ${col}::STRING FROM (
+                        SELECT ${col}, COUNT(*) cnt
+                        FROM CORE_DATASET
+                        GROUP BY ${col}
+                        ORDER BY cnt DESC
+                        LIMIT 1
+                    )
+                )
+            WHERE ordinal_position = ${pos};
+        `;
+    } else {
+        continue; // skip unsupported types
+    }
+
+    snowflake.execute({sqlText: sql_command});
+}
+
+return "Profiling complete.";
+$$;
+
+CALL profile_clinical_data();
+
+SELECT * FROM column_profile ORDER BY ordinal_position;
