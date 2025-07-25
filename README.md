@@ -1,4 +1,4 @@
-`HR Analytics Dashboard Workflow (Snowflake + Looker)`
+HR Analytics Dashboard Workflow (Snowflake + Looker)
 
 Dashboard- https://lookerstudio.google.com/s/rE_EzlYS_uQ
 
